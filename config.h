@@ -88,6 +88,15 @@ typedef struct {
  */
 extern config_t g_config;
 
+/*
+ * Bumped every time g_config is replaced wholesale from outside the running
+ * policy - flash load, factory defaults, a web-app WRITE. Anything holding
+ * state that refers to the old contents (controller.c's in-flight bank
+ * navigation) watches this and drops it. Wraps harmlessly: consumers compare
+ * for inequality, never order.
+ */
+extern uint32_t g_config_epoch;
+
 void config_load_defaults(void); /* overwrite g_config with factory defaults */
 bool config_load(void);          /* read flash into g_config; false if absent/invalid */
 bool config_save(void);          /* stamp header+CRC, write g_config to flash */

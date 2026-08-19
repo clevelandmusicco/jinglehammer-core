@@ -7,6 +7,7 @@
 #include "hardware/sync.h"   /* save_and_disable_interrupts / restore_interrupts */
 
 config_t g_config;
+uint32_t g_config_epoch;
 
 /*
  * Reserve the last flash sector for config. One 4 KiB sector holds the blob
@@ -103,6 +104,7 @@ static void config_stamp(config_t *c)
 
 void config_load_defaults(void)
 {
+    g_config_epoch++;
     memset(&g_config, 0, sizeof g_config); /* mode=SW_MODE_PRESET, pc_count=0, cc_count=0 everywhere */
     g_config.active_bank = 0;
 
@@ -148,6 +150,7 @@ bool config_load(void)
     if (!config_is_valid(flash))
         return false;
     memcpy(&g_config, flash, sizeof g_config);
+    g_config_epoch++;
     return true;
 }
 
@@ -207,5 +210,6 @@ bool config_deserialize(const uint8_t *in, size_t len)
         return false;
 
     g_config = tmp;
+    g_config_epoch++;
     return true;
 }

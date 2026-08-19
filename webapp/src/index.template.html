@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!--
+  GENERATED FILE - do not edit. Edit src/ and run ./build.sh.
+  Sources: src/index.template.html, src/style.css, src/js/*.js
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jinglehammer MC - Config</title>
+<style>
+<!-- include: style.css -->
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Jinglehammer MC</h1>
+    <div class="sub">footswitch MIDI bundle editor &middot; 8 banks</div>
+  </div>
+  <div class="spacer"></div>
+  <span id="status" class="pill"><span class="dot"></span><span id="status-text">Not connected</span></span>
+  <div class="toolbar">
+    <button id="btn-connect" class="primary">Connect</button>
+    <button id="btn-read" disabled>Read</button>
+    <button id="btn-save" class="primary" disabled>Write + Save</button>
+    <button id="btn-factory" class="danger" disabled>Factory reset</button>
+    <button id="btn-frames">Frames</button>
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner"></div>
+  <div id="bankbar" class="bankbar" hidden>
+    <span class="section-label">Banks</span>
+    <div id="bank-tabs" class="bank-tabs"></div>
+    <span class="spacer"></span>
+    <span id="active-note" class="note"></span>
+    <button id="btn-setactive" class="small" disabled>Set as active</button>
+  </div>
+  <div id="grid" class="grid"></div>
+
+  <section id="frames" class="card mon" hidden>
+    <div class="head">
+      <span class="section-label">Frame monitor</span>
+      <span id="mon-count" class="sub">0 frames</span>
+      <span class="spacer"></span>
+      <label class="switch"><input id="mon-autoscroll" type="checkbox" checked><span class="track"></span><span>Autoscroll</span></label>
+      <button id="mon-clear" class="small">Clear</button>
+    </div>
+    <div class="mon-note">
+      Raw CDC bytes, exactly as they cross the wire. TX header: <code>4D 43</code> (M C) &middot; cmd &middot; len(2 LE).
+      RX header inserts a status byte: <code>4D 43</code> &middot; cmd &middot; status &middot; len(2 LE). Payload follows.
+    </div>
+    <div id="mon-log" class="mon-log"><div class="mon-empty">No frames yet. Connect and read.</div></div>
+  </section>
+</main>
+
+<footer>
+  Connect over USB (CDC). Edits to all 8 banks stay in the browser until you press <b>Write + Save</b>, which
+  writes the whole config to the device and commits it to flash. Channels shown 1-16; programs, CC numbers and values 0-127.
+  Requires Chrome or Edge.
+</footer>
+
+<script>
+"use strict";
+
+<!-- include: js/config-schema.js -->
+
+<!-- include: js/crc32.js -->
+
+<!-- include: js/protocol.js -->
+
+<!-- include: js/model.js -->
+
+<!-- include: js/paging.js -->
+
+<!-- include: js/render.js -->
+
+<!-- include: js/status.js -->
+
+<!-- include: js/monitor.js -->
+
+<!-- include: js/commands.js -->
+
+<!-- include: js/wiring.js -->
+</script>
+</body>
+</html>

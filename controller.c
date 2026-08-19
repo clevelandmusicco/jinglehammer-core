@@ -56,6 +56,16 @@
  * preset was actually active before all this started (or off, pre-first-
  * press) - so a revert reads as "back to bank 5, preset 3" rather than an
  * unexplained snap to some LED state.
+ *
+ * External config writes: the web app can replace the whole config over CDC
+ * (and ask for factory defaults), active_bank included. That invalidates a
+ * navigation in progress - the pending revert would otherwise restore
+ * pre_nav_bank on top of the bank the host just installed, and if it lands
+ * between the WRITE and the SAVE, the stale bank is what reaches flash. A bump
+ * of g_config_epoch therefore cancels the nav outright - no revert - and plays
+ * the ordinary bank readout for the bank the host installed, so a Write + Save
+ * is acknowledged on the unit and not only in the browser. The readout settles
+ * back to the lit preset; no preset-wait window, since nothing was navigated.
  */
 
 #define CHORD_WINDOW_MS          20u /* 8 ms debounce + slack for real-world press skew */
@@ -82,7 +92,7 @@ static uint8_t          bank_display_pos;   /* 0..NUM_SWITCHES-1 */
 static bool             bank_display_blink;
 static absolute_time_t bank_blink_next_toggle;
 static bool             bank_blink_led_on;
-static bool             bank_display_revert; /* true = this display is showing the bank we're reverting to, not one just navigated to */
+static bool             bank_display_settles; /* true = end this display in radio mode (revert readout, host write), false = it followed a chord, so a preset-wait window comes next */
 
 static absolute_time_t preset_wait_deadline;
 static absolute_time_t preset_wait_state_start; /* start of the current 500 ms ramp */
@@ -94,6 +104,12 @@ static bool             preset_wait_rising;      /* true = fading low->high this
  * verbatim if PRESET_WAIT_WINDOW_MS lapses with no pick. */
 static uint16_t pre_nav_bank;
 static int8_t   active_switch = -1;
+
+/* Last g_config_epoch this file reacted to. Bank-nav state (pre_nav_bank above,
+ * plus the display/wait windows) only means anything against the config that was
+ * live when the chord landed, so a wholesale replacement cancels it - see the
+ * external-write note at the top of this file. */
+static uint32_t seen_epoch;
 
 static void bank_step(int8_t delta)
 {
@@ -107,14 +123,14 @@ static void bank_step(int8_t delta)
     g_config.active_bank = (uint16_t)bank;
 }
 
-static void start_bank_display(bool is_revert)
+static void start_bank_display(bool settles_to_radio)
 {
     uint16_t bank = g_config.active_bank;
 
     bank_display_pos      = (uint8_t)(bank % NUM_SWITCHES);
     bank_display_blink    = (bank / NUM_SWITCHES) != 0;
     bank_display_deadline = make_timeout_time_ms(BANK_DISPLAY_WINDOW_MS);
-    bank_display_revert   = is_revert;
+    bank_display_settles  = settles_to_radio;
     led_mode              = LED_MODE_BANK_DISPLAY;
 
     bank_blink_led_on      = true;
@@ -133,6 +149,23 @@ static void start_preset_wait(void)
     io_set_leds_level(PRESET_WAIT_LEVEL_LOW);
 }
 
+/* React to a config the host replaced under us (web-app Write + Save, factory
+ * reset). Any navigation in flight is dropped without reverting - whoever wrote
+ * the config owns active_bank now - and the standard bank readout plays for the
+ * bank it left us on, so a Save is visibly acknowledged on the unit itself and
+ * not just in the browser. It runs on every replacement, not only ones that move
+ * the bank: "the write landed" is the useful half of the signal, and the readout
+ * always names the bank that is now live. No preset-wait window follows: a host
+ * write is not a navigation, so there is nothing to pick and nothing to revert
+ * to - the readout settles onto whichever preset was already lit. */
+static void on_config_replaced(void)
+{
+    /* Rebaselined so a chord landing during the readout below chains from the
+     * host's bank rather than the one we were on before the write. */
+    pre_nav_bank = g_config.active_bank;
+    start_bank_display(true);
+}
+
 void controller_init(void)
 {
     io_set_leds(0);
@@ -140,6 +173,7 @@ void controller_init(void)
         pending[i] = false;
     led_mode      = LED_MODE_RADIO;
     active_switch = -1;
+    seen_epoch    = g_config_epoch;
 }
 
 void controller_on_edges(uint8_t edges)
@@ -196,6 +230,16 @@ void controller_poll(void)
 {
     int last = -1;
 
+    /* Checked before the timeout handling below, so a revert can never fire
+     * against a config that was replaced under us - including in the gap between
+     * a CDC WRITE and the SAVE that would otherwise commit the stale bank to
+     * flash. Pending presses are left alone: they are real presses, and they fire
+     * against the new config, which is what the player asked for. */
+    if (g_config_epoch != seen_epoch) {
+        seen_epoch = g_config_epoch;
+        on_config_replaced();
+    }
+
     for (uint8_t i = 0; i < NUM_SWITCHES; i++) {
         if (pending[i] && time_reached(pending_deadline[i])) {
             pending[i] = false;
@@ -215,8 +259,8 @@ void controller_poll(void)
 
     if (led_mode == LED_MODE_BANK_DISPLAY) {
         if (time_reached(bank_display_deadline)) {
-            if (bank_display_revert) {
-                /* Revert's bank display has had its say - now show which
+            if (bank_display_settles) {
+                /* Revert / host-write readout has had its say - now show which
                  * preset is (still) active on that bank, same as any other
                  * settle into radio mode. */
                 led_mode = LED_MODE_RADIO;

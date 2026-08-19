@@ -171,6 +171,15 @@ no MIDI sent, which read as if a preset had actually been selected. Now:
 - Webapp is untouched. `active_bank` can now drift from what the webapp last
   saw without a Save - probably fine (Read already re-syncs), but no explicit
   decision was made about surfacing this in the UI.
+- Fixed after the fact: nav state outlived the config it referred to. A web-app
+  Write + Save (or factory reset) mid-nav got undone by the pending revert
+  writing `pre_nav_bank` back over the bank the host had just installed - and a
+  revert landing in the gap between WRITE and SAVE put the stale bank in flash.
+  `config.c` now bumps `g_config_epoch` on every wholesale replacement,
+  `controller_poll()` checks it ahead of its timeout handling and cancels the
+  nav, and the same hook replays the bank readout so a Save is acknowledged on
+  the unit. Pending presses survive the cancel: they are real presses and fire
+  against the new config.
 - Non-preset switch modes (latching, hold for something other than bank nav)
   still not started - unrelated to this branch, just noting so it's not
   confused with in-scope work.
