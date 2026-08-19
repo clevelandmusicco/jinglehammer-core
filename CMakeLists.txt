@@ -52,6 +52,7 @@ target_link_libraries(midi_ctrl
     hardware_uart
     hardware_flash
     hardware_sync
+    hardware_pwm
     tinyusb_device
     tinyusb_board
 )

@@ -50,6 +50,7 @@ int main(void)
             uint8_t edges = io_poll();
             if (edges)
                 controller_on_edges(edges);
+            controller_poll();
 
             /*
              * Keep polls at >=1 ms real spacing. controller_on_edges() can block
