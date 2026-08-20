@@ -54,8 +54,10 @@
 #define MAX_NAME_LEN 16u
 
 /*
- * Banks held by the data model. Only one is active today (see config.active_bank),
- * but the struct and flash layout carry all of them so banking can be turned on
- * later with no on-flash migration.
+ * Banks held by the data model. All of them sit in the flash blob; which one is
+ * live is config.active_bank, stepped by footswitch chord (controller.c) or set
+ * by the web app. Raising this past 2*NUM_SWITCHES makes controller.c's LED
+ * bank readout ambiguous - it encodes a bank as LED position plus blink/solid,
+ * and that runs out at 8.
  */
 #define NUM_BANKS 8u
