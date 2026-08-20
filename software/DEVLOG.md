@@ -191,9 +191,11 @@ no MIDI sent, which read as if a preset had actually been selected. Now:
   this," that one is the "what it does."
 - Build: `cmake --build build` (build dir already configured, see root
   `CLAUDE.md`).
-- Flash: no BOOTSEL-less USB path exists for this firmware - confirmed
-  `picotool load -f` won't work here (raw TinyUSB composite device, no
-  `pico_stdio_usb`/vendor reset interface, `CFG_TUD_VENDOR 0`). Use the SWD
-  path instead: VS Code task `Flash` (`openocd` + CMSIS-DAP probe), already
-  wired up in `.vscode/tasks.json`. Requires a physical debug probe on the
-  board's SWD pads.
+- Flash: `picotool load -fx build/midi_ctrl.uf2` (VS Code task `firmware:
+  deploy`). `-f` reboots the running board into BOOTSEL over USB, so no button
+  and no unplugging. That works because the firmware now carries picotool's
+  reset interface (`usb_reset_iface.c`) and enumerates as `2e8a:0009`; a board
+  still running an older build has neither, so its *first* flash of a
+  reset-interface binary is BOOTSEL or SWD. Windows needs no Zadig step - the
+  MS OS 2.0 descriptors bind WinUSB to the reset interface by themselves. SWD (VS Code task `Flash`, openocd
+  + CMSIS-DAP probe) also still works and is the only path if USB is dead.

@@ -1,0 +1,125 @@
+{
+	// Multi-root workspace for the software half of the repo. Open THIS file,
+	// not the software/ folder: VSCode only reads .vscode/ at a workspace-folder
+	// root, so with software/ as the root the Pico extension's config in
+	// firmware/.vscode/ was being ignored entirely.
+	//
+	// Every path here is relative and stays inside software/. The git root is one
+	// level up and holds docs/ and hardware/; VSCode never needs to see them
+	// (the SCM view still spans the whole repo, which is what you want for commits).
+	"folders": [
+		{
+			// README / DEVLOG / CLAUDE.md. Its .vscode/settings.json hides the two
+			// subfolders below so they do not show up twice in the explorer.
+			"name": "software",
+			"path": "."
+		},
+		{
+			"name": "firmware",
+			"path": "firmware"
+		},
+		{
+			"name": "webapp",
+			"path": "webapp"
+		}
+	],
+	// These are window- or machine-scoped, so VSCode ignores them when they sit in
+	// a folder's settings.json under a multi-root workspace. firmware/.vscode/
+	// still carries its own copy (the Pico extension writes it and would put it
+	// back anyway); this block is the one that actually takes effect.
+	"settings": {
+		"cmake.showSystemKits": false,
+		"cmake.configureOnEdit": false,
+		"cmake.automaticReconfigure": false,
+		"cmake.configureOnOpen": false,
+		"cmake.generator": "Ninja",
+		"cmake.cmakePath": "${userHome}/.pico-sdk/cmake/v3.31.5/bin/cmake",
+		"cmake.options.statusBarVisibility": "hidden",
+		"C_Cpp.debugShortcut": false,
+		"raspberry-pi-pico.cmakeAutoConfigure": true,
+		"raspberry-pi-pico.useCmakeTools": false,
+		"raspberry-pi-pico.cmakePath": "${userHome}/.pico-sdk/cmake/v3.31.5/bin/cmake",
+		"raspberry-pi-pico.ninjaPath": "${userHome}/.pico-sdk/ninja/v1.12.1/ninja",
+		// Pico toolchain on PATH for hand-typed commands in any integrated
+		// terminal. Note this shadows /usr/bin/cmake with the SDK's 3.31.5.
+		"terminal.integrated.env.linux": {
+			"PICO_SDK_PATH": "${env:HOME}/.pico-sdk/sdk/2.2.0",
+			"PICO_TOOLCHAIN_PATH": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1",
+			"PATH": "${env:HOME}/.pico-sdk/toolchain/14_2_Rel1/bin:${env:HOME}/.pico-sdk/picotool/2.2.0-a4/picotool:${env:HOME}/.pico-sdk/cmake/v3.31.5/bin:${env:HOME}/.pico-sdk/ninja/v1.12.1:${env:PATH}"
+		},
+		// Resolved per root, so "firmware"/"webapp" only ever match inside the
+		// "software" root - the other two roots have no such subdirectory. That
+		// stops the explorer showing each tree twice here, without leaking into
+		// a plain File > Open Folder on software/, where it would just hide
+		// every source file.
+		"files.exclude": {
+			"firmware": true,
+			"webapp": true
+		},
+		// Applies to every root. Keeps the CMake/Ninja artifact tree out of search
+		// results; harmless for webapp, which has no build/ directory.
+		"search.exclude": {
+			"build": true
+		},
+		"files.trimTrailingWhitespace": true,
+		"files.insertFinalNewline": true
+	},
+	"extensions": {
+		"recommendations": [
+			"marus25.cortex-debug",
+			"ms-vscode.cpptools",
+			"ms-vscode.cpptools-extension-pack",
+			"ms-vscode.vscode-serial-monitor",
+			"raspberry-pi.raspberry-pi-pico"
+		]
+	},
+	// Cross-folder convenience only. Each of these shells out with an explicit
+	// ${workspaceFolder:...} path rather than dependsOn-ing the folder tasks,
+	// because cross-folder dependsOn resolution by task label is unreliable.
+	// Neither half depends on the other; the folder tasks remain standalone.
+	"tasks": {
+		"version": "2.0.0",
+		"options": {
+			"env": {
+				"PATH": "${userHome}/.pico-sdk/toolchain/14_2_Rel1/bin:${userHome}/.pico-sdk/picotool/2.2.0-a4/picotool:${userHome}/.pico-sdk/cmake/v3.31.5/bin:${userHome}/.pico-sdk/ninja/v1.12.1:${env:PATH}"
+			}
+		},
+		"tasks": [
+			{
+				"label": "all: build",
+				"detail": "Build firmware and webapp (parallel, independent)",
+				"type": "shell",
+				"command": "cmake --build '${workspaceFolder:firmware}/build' & '${workspaceFolder:webapp}/build.sh' & wait",
+				"group": "build",
+				"problemMatcher": ["$gcc"],
+				"presentation": {
+					"reveal": "always",
+					"panel": "dedicated"
+				}
+			},
+			{
+				"label": "all: verify",
+				"detail": "Build firmware, then run the webapp self-test",
+				"type": "shell",
+				"command": "cmake --build '${workspaceFolder:firmware}/build' && '${workspaceFolder:webapp}/test.sh'",
+				"group": "test",
+				"problemMatcher": ["$gcc"],
+				"presentation": {
+					"reveal": "always",
+					"panel": "dedicated"
+				}
+			},
+			{
+				"label": "all: deploy",
+				"detail": "Build firmware, load it over USB, then rebuild webapp/index.html",
+				"type": "shell",
+				"command": "cmake --build '${workspaceFolder:firmware}/build' && picotool load '${workspaceFolder:firmware}/build/midi_ctrl.uf2' -fx && '${workspaceFolder:webapp}/build.sh'",
+				"problemMatcher": ["$gcc"],
+				"presentation": {
+					"reveal": "always",
+					"panel": "dedicated"
+				}
+			}
+		]
+	}
+}

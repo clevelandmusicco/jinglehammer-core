@@ -1,0 +1,65 @@
+{
+	"version": "2.0.0",
+	// build.sh and test.sh both cd to their own directory first, so cwd here is
+	// belt and braces. Nothing in this file touches firmware/: the editor builds
+	// and tests on its own.
+	"options": {
+		"cwd": "${workspaceFolder}"
+	},
+	"tasks": [
+		{
+			"label": "webapp: build",
+			"detail": "Inline src/ into index.html",
+			"type": "shell",
+			"command": "./build.sh",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "webapp: check",
+			"detail": "Fail if index.html is stale against src/",
+			"type": "shell",
+			"command": "./build.sh --check",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "webapp: test",
+			"detail": "Rebuild, then run the gjs codec/page self-test",
+			"type": "shell",
+			"command": "./test.sh",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "webapp: open",
+			"detail": "Rebuild and open index.html in the default browser",
+			"type": "shell",
+			// file:// on purpose - WebSerial works from disk, ES modules do not,
+			// which is the whole reason the app ships as one inlined file.
+			"command": "./build.sh && xdg-open index.html",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent",
+				"panel": "dedicated"
+			}
+		}
+	]
+}

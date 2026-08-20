@@ -43,6 +43,7 @@ add_executable(midi_ctrl
     controller.c
     cdc_proto.c
     usb_descriptors.c
+    usb_reset_iface.c
 )
 
 target_include_directories(midi_ctrl PRIVATE ${CMAKE_CURRENT_LIST_DIR})
@@ -53,6 +54,9 @@ target_link_libraries(midi_ctrl
     hardware_flash
     hardware_sync
     hardware_pwm
+    hardware_watchdog
+    pico_bootrom
+    pico_usb_reset_interface_headers
     tinyusb_device
     tinyusb_board
 )
