@@ -37,8 +37,7 @@
 #define CFG_TUD_MIDI            1
 #define CFG_TUD_VENDOR          0
 
-/* Roomier than the 64 B endpoint so a config frame (~1.7 KB blob, sent/received
- * in chunks across loop ticks) buffers without per-byte FIFO stalls. */
+/* Buffer frames without per-byte FIFO stalls (config ~1.7 KB). */
 #define CFG_TUD_CDC_RX_BUFSIZE  256
 #define CFG_TUD_CDC_TX_BUFSIZE  256
 

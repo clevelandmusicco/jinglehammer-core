@@ -7,16 +7,8 @@
 #include "board.h"
 
 /*
- * Every message goes to both transports, but they have different contracts:
- *
- *  - UART (the pedalboard) is authoritative: uart_write_blocking always sends the
- *    whole message, so the pedals work stand-alone and are never held up by USB.
- *  - USB-MIDI cable 0 (a host/DAW monitor, or bring-up testing) is best-effort:
- *    tud_midi_stream_write is non-blocking and accepts fewer than n bytes when its
- *    64-byte TX FIFO is full (no host, or a host that has stopped draining). We
- *    let the overflow drop rather than spin on tud_task() here - a stalled monitor
- *    must never block MIDI to the pedals or footswitch polling. The web-app config
- *    link rides on CDC, not on this feed, so best-effort is the right trade.
+ * UART blocking (authoritative for pedals). USB-MIDI best-effort (non-blocking,
+ * drops on full FIFO). CDC config separate, never blocks pedals.
  */
 static void emit(const uint8_t *bytes, size_t n)
 {

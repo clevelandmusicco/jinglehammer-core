@@ -1,19 +1,8 @@
 /*
- * picotool's reset interface: a zero-endpoint vendor interface whose whole job
- * is answering two control requests, "reboot into BOOTSEL" and "reboot into
- * flash". That is what lets `picotool load -fx` reset a running board over USB
- * instead of somebody unplugging the controller and holding BOOTSEL.
- *
- * Same wire contract as pico_stdio_usb's reset interface (SDK
- * src/rp2_common/pico_stdio_usb/reset_interface.c), re-done here because this
- * firmware brings its own descriptors and does not link pico_stdio_usb.
- * TinyUSB picks the driver up through the weak usbd_app_driver_get_cb() hook,
- * so CFG_TUD_VENDOR stays 0 - no vendor class driver, no endpoints, no FIFOs.
- *
- * Note the device VID/PID (usb_descriptors.c) has to stay 0x2E8A/0x0009 for
- * this to be reachable: picotool only looks for the reset interface on
- * Raspberry Pi VID devices unless you pass --vid 0, and picotool's udev rules
- * only grant access to those same IDs.
+ * picotool reset interface: answers BOOTSEL/flash-reboot requests so
+ * `picotool load -fx` works. Same contract as SDK's reset_interface.c but
+ * custom here. VID/PID must be 0x2E8A/0x0009 (Raspberry Pi) for picotool
+ * discovery.
  */
 
 #include "tusb.h"
@@ -23,9 +12,7 @@
 #include "pico/bootrom.h"
 #include "pico/usb_reset_interface.h"
 
-/* Give the control transfer time to finish its status stage before the
- * watchdog yanks the chip, so the host sees a clean answer rather than a
- * mid-transfer disconnect. */
+/* Delay before reset to let host see clean status response. */
 #define RESET_TO_FLASH_DELAY_MS 100u
 
 static uint8_t itf_num;
@@ -68,13 +55,8 @@ static bool resetd_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_r
 
     switch (request->bRequest) {
     case RESET_REQUEST_BOOTSEL: {
-        /*
-         * wValue layout, as picotool packs it: bits 6:0 = bootrom interface
-         * disable mask, bit 7 = activity LED is active-low, bit 8 = an
-         * activity-LED GPIO follows, bits 15:9 = that GPIO number. Only set
-         * when the caller passes picotool's --led/-a; the plain `-f` path
-         * sends 0 and the bootrom picks its own default.
-         */
+        /* wValue bits: 6:0=bootrom mask, 7=LED polarity, 8=LED GPIO present,
+         * 15:9=GPIO num. 0=bootrom default. */
         int  gpio       = (request->wValue & 0x100u) ? (int)(request->wValue >> 9u) : -1;
         bool active_low = (request->wValue & 0x080u) != 0;
 
@@ -107,8 +89,7 @@ static usbd_class_driver_t const resetd_driver = {
     .sof             = NULL,
 };
 
-/* Weak hook in TinyUSB's usbd.c: app drivers are tried before the built-in
- * class drivers, so this claims the vendor interface CDC and MIDI ignore. */
+/* Weak hook; app drivers tried first, so vendor interface claims this (CDC/MIDI ignore). */
 usbd_class_driver_t const *usbd_app_driver_get_cb(uint8_t *driver_count)
 {
     *driver_count = 1;

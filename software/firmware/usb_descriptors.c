@@ -5,11 +5,7 @@
 #include "pico/usb_reset_interface.h"
 
 /*
- * Raspberry Pi's VID paired with the SDK's own RP2350 CDC PID. Not vanity:
- * picotool only hunts for the reset interface (usb_reset_iface.c) on 0x2E8A
- * devices unless you hand it --vid 0, and the udev rules picotool ships grant
- * access to exactly these IDs. A private VID here would cost a hand-written
- * udev rule plus a flag on every picotool invocation.
+ * Raspberry Pi VID (0x2E8A) required: picotool and udev rules target it.
  */
 #define USB_VID  0x2E8Au
 #define USB_PID  0x0009u
@@ -17,9 +13,7 @@
 tusb_desc_device_t const desc_device = {
     .bLength            = sizeof(tusb_desc_device_t),
     .bDescriptorType    = TUSB_DESC_DEVICE,
-    /* 0x0210, not 0x0200: Windows only asks for the BOS descriptor (and with
-     * it the MS OS 2.0 set that auto-binds WinUSB to the reset interface) on
-     * devices claiming USB 2.1. */
+    /* USB 2.1 (not 2.0) to trigger BOS/MS OS 2.0 query on Windows. */
     .bcdUSB             = 0x0210,
     /* 0xEF/0x02/0x01 required for Windows to honour the IAD that CDC uses. */
     .bDeviceClass       = 0xEF,
@@ -28,11 +22,7 @@ tusb_desc_device_t const desc_device = {
     .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
     .idVendor           = USB_VID,
     .idProduct          = USB_PID,
-    /* Windows caches "does this device have MS OS descriptors" under
-     * HKLM\SYSTEM\CurrentControlSet\Control\usbflags, keyed on VID+PID+
-     * bcdDevice, and never re-asks for a key it has seen. Bumped once when the
-     * MS OS 2.0 set was added so machines that met an earlier build (or some
-     * other 2e8a:0009 device) re-read rather than trusting a stale "no". */
+    /* bcdDevice=0x0101 bumped once to invalidate Windows' MS OS descriptor cache on re-enumeration. */
     .bcdDevice          = 0x0101,
     .iManufacturer      = 0x01,
     .iProduct           = 0x02,
@@ -70,30 +60,18 @@ uint8_t const desc_fs_configuration[] = {
     TUD_RPI_RESET_DESCRIPTOR(ITF_NUM_RESET, 0x04) /* macro carries its own trailing comma */
 };
 
-/* wTotalLength in the config descriptor is hand-summed above; a mismatch makes
- * the host truncate or over-read the descriptor set, which is a miserable bug
- * to chase from the enumeration end. */
+/* Hand-summed; mismatches cause silent truncation/over-read, hard to debug. */
 TU_VERIFY_STATIC(sizeof(desc_fs_configuration) == CONFIG_TOTAL_LEN, "config descriptor length mismatch");
 
 /*
- * Microsoft OS 2.0 descriptors. Windows 8.1+ reads these and binds winusb.sys
- * to the reset interface on its own, which is what picotool needs to talk to
- * it; without them a Windows user has to run Zadig and hand-pick interface 4,
- * and picking the wrong one there swaps the CDC's driver out and takes the
- * config editor down with it. Other hosts ignore all of this: Linux and macOS
- * hand an unclaimed vendor interface to libusb without being asked.
- *
- * Lifted from the SDK's pico_stdio_usb (stdio_usb_descriptors.c /
- * reset_interface.c), including its DeviceInterfaceGUID, with the function
- * subset pointed at our own reset interface number. Byte-counted by hand, so
- * the static asserts below matter.
+ * MS OS 2.0 auto-binds WinUSB on Windows; Linux/macOS ignore. Lifted from SDK
+ * with custom interface number; hand-counted, so asserts matter.
  */
 #define MS_OS_20_DESC_LEN 166u
 
 #define BOS_TOTAL_LEN (TUD_BOS_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN)
 
-/* Vendor request code the host uses to fetch the set; arbitrary, but it lands
- * in bRequest, so it must match the check in tud_vendor_control_xfer_cb(). */
+/* Vendor request code; must match tud_vendor_control_xfer_cb() check. */
 #define VENDOR_REQUEST_MICROSOFT 0x01
 
 uint8_t const desc_bos[] = {
@@ -108,9 +86,7 @@ static uint8_t const desc_ms_os_20[] = {
     U16_TO_U8S_LE(0x000A), U16_TO_U8S_LE(MS_OS_20_SET_HEADER_DESCRIPTOR),
     U32_TO_U8S_LE(0x06030000), U16_TO_U8S_LE(MS_OS_20_DESC_LEN),
 
-    /* Function subset header: length, type, first interface, reserved, subset
-     * length. Scoping this to ITF_NUM_RESET is what keeps WinUSB off the CDC
-     * and MIDI interfaces, which keep their own class drivers. */
+    /* Scope WinUSB to reset interface only (CDC/MIDI keep their drivers). */
     U16_TO_U8S_LE(0x0008), U16_TO_U8S_LE(MS_OS_20_SUBSET_HEADER_FUNCTION),
     ITF_NUM_RESET, 0, U16_TO_U8S_LE(0x009C),
 
@@ -119,8 +95,7 @@ static uint8_t const desc_ms_os_20[] = {
     'W', 'I', 'N', 'U', 'S', 'B', 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 
-    /* Registry property: DeviceInterfaceGUID, so WinUSB exposes the interface
-     * to libusb (and through it picotool). */
+    /* DeviceInterfaceGUID exposes interface to libusb/picotool. */
     U16_TO_U8S_LE(0x0080), U16_TO_U8S_LE(MS_OS_20_FEATURE_REG_PROPERTY),
     U16_TO_U8S_LE(0x0001), U16_TO_U8S_LE(0x0028), /* type = UTF-16 sz, name length */
     'D', 0x00, 'e', 0x00, 'v', 0x00, 'i', 0x00, 'c', 0x00, 'e', 0x00, 'I', 0x00, 'n', 0x00,
@@ -166,9 +141,7 @@ uint8_t const *tud_descriptor_bos_cb(void)
 }
 
 /*
- * Device-level vendor request, so it never reaches the reset interface's own
- * driver (usb_reset_iface.c) - TinyUSB routes it to this weak callback even
- * with CFG_TUD_VENDOR 0. wIndex 7 is MS OS 2.0's "get descriptor set".
+ * Device-level vendor request routed to weak callback (CFG_TUD_VENDOR=0). wIndex 7 = MS OS 2.0 get.
  */
 bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request)
 {

@@ -16,13 +16,11 @@
  * in here.
  */
 
-/* A single Program Change message. */
 typedef struct {
     uint8_t channel; /* 0..15 */
     uint8_t program; /* 0..127 */
 } pc_msg_t;
 
-/* A single Control Change message. */
 typedef struct {
     uint8_t channel;    /* 0..15 */
     uint8_t controller; /* 0..127 */
@@ -30,14 +28,8 @@ typedef struct {
 } cc_msg_t;
 
 /*
- * The bundle one footswitch press emits: a display label, then zero or more
- * Program Changes followed by zero or more Control Changes, each message free
- * to target its own channel.
- *
- * `name` is a NUL-terminated label for the front panel (a future OLED/LCD). It
- * is purely cosmetic - the firmware never acts on it - but config_is_valid()
- * still requires the terminator so any string read of it is bounded. All bytes
- * here are single-byte, so the struct stays densely packed with no padding.
+ * `name` is cosmetic (firmware ignores it) but config_is_valid() enforces
+ * NUL terminator for safety.
  */
 typedef struct {
     char     name[MAX_NAME_LEN];  /* NUL-terminated, <=15 visible chars */
@@ -69,10 +61,8 @@ typedef struct {
 #define CONFIG_VERSION 3u          /* v3: added preset_t.name */
 
 /*
- * The whole persisted blob. Header first, CRC last (the CRC covers every byte
- * before it). Header fields are little-endian (RP2350 native); the body is all
- * single bytes, so the struct is densely packed with a stable layout that the
- * web app can mirror byte-for-byte.
+ * CRC at end covers all preceding bytes; header is LE, body is bytes for
+ * web app mirror.
  */
 typedef struct {
     uint32_t   magic;
@@ -83,17 +73,14 @@ typedef struct {
 } config_t;
 
 /*
- * Live, in-RAM configuration. Loaded at boot, mutated by the (future) config
+ * Live, in-RAM configuration. Loaded at boot, mutated by the config
  * transport, written back to flash by config_save().
  */
 extern config_t g_config;
 
 /*
- * Bumped every time g_config is replaced wholesale from outside the running
- * policy - flash load, factory defaults, a web-app WRITE. Anything holding
- * state that refers to the old contents (controller.c's in-flight bank
- * navigation) watches this and drops it. Wraps harmlessly: consumers compare
- * for inequality, never order.
+ * Bumped when g_config is replaced wholly; consumers (controller.c bank nav)
+ * watch for changes and reset. Wraps safely (inequal-check only).
  */
 extern uint32_t g_config_epoch;
 

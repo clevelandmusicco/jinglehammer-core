@@ -9,25 +9,16 @@ static const uint8_t fsw_pin[NUM_SWITCHES] = { FSW1_PIN, FSW2_PIN, FSW3_PIN, FSW
 static const uint8_t led_pin[NUM_SWITCHES] = { LED1_PIN, LED2_PIN, LED3_PIN, LED4_PIN };
 
 /*
- * LEDs run off hardware PWM (not plain gpio_put) so controller.c can fade
- * brightness for the preset-wait pulse, not just switch LEDs on/off. 8-bit
- * duty (wrap=255) maps 1:1 onto the uint8_t level API. clkdiv is a fixed,
- * conservative constant rather than computed from clk_sys: at Pico 2's usual
- * ~150 MHz clk_sys this lands around 2.3 kHz, comfortably past the ~100 Hz
- * flicker-fusion threshold; exact frequency doesn't matter for an LED.
- * LED1/LED2 (GP6/7) and LED3/LED4 (GP8/9) each share one PWM slice, but
- * channels A/B within a slice have independent compare (duty) registers, so
- * per-LED brightness stays independent despite the shared slice.
+ * PWM for fade support; 8-bit wrap=255 maps to uint8_t level. clkdiv=250 ->
+ * ~2.3 kHz (past flicker fusion). LED pairs share PWM slices but have
+ * independent duty.
  */
 #define LED_PWM_WRAP   255u
 #define LED_PWM_CLKDIV 250u
 
 /*
- * Per-switch 8-sample shift-register debounce. A state change registers only
- * after 8 consecutive equal samples; at the 1 ms poll rate that's an 8 ms guard
- * band, comfortably past typical footswitch contact bounce. Polling (vs a GPIO
- * IRQ) keeps all switch state out of interrupt context and makes timing
- * deterministic.
+ * 8-sample shift-register debounce (~8 ms at 1 ms poll). Polling keeps
+ * state deterministic, out of IRQ context.
  */
 static uint8_t hist[NUM_SWITCHES];
 static bool    down[NUM_SWITCHES];
@@ -46,10 +37,8 @@ void io_init(void)
         pwm_config cfg = pwm_get_default_config();
         pwm_config_set_clkdiv_int(&cfg, LED_PWM_CLKDIV);
         pwm_config_set_wrap(&cfg, LED_PWM_WRAP);
-        /* pwm_init() resets both channels' compare (level) registers on the
-         * slice it configures - harmless here since every LED gets an
-         * explicit level of 0 right after, but it means this call must stay
-         * confined to init and never run again once LEDs are live. */
+        /* pwm_init() resets both channels; confined to init only (set level
+         * immediately after). */
         pwm_init(pwm_gpio_to_slice_num(led_pin[i]), &cfg, true);
         pwm_set_gpio_level(led_pin[i], 0);
     }

@@ -4,7 +4,7 @@ const CMD = { HELLO: 0x01, READ: 0x02, WRITE: 0x03, SAVE: 0x04, FACTORY: 0x05, T
 const ST_NAME = { 0:"ok", 1:"bad length", 2:"rejected (validation failed)", 3:"flash write failed", 4:"unknown command" };
 
 class Link {
-  constructor() { this.port = null; this.reader = null; this.writer = null; this.rx = new Uint8Array(0); this.pending = null; this.onFrame = null; }
+  constructor() { this.port = null; this.reader = null; this.writer = null; this.rx = new Uint8Array(0); this.pending = null; this.onFrame = null; this._chain = Promise.resolve(); }
 
   get connected() { return !!this.port; }
 
@@ -56,17 +56,24 @@ class Link {
     if (this.rx.length) this._parse();
   }
 
+  // Only one command can be in flight at a time (`pending` is a single slot,
+  // not a map keyed by cmd), so callers are queued here rather than trusted
+  // to serialize themselves - a Test fired while a Save is in flight would
+  // otherwise steal the Save's response.
   send(cmd, payload = new Uint8Array(0)) {
-    const frame = new Uint8Array(5 + payload.length);
-    frame[0] = SOF0; frame[1] = SOF1; frame[2] = cmd;
-    frame[3] = payload.length & 0xFF; frame[4] = (payload.length >> 8) & 0xFF;
-    frame.set(payload, 5);
-    this.onFrame?.("tx", frame);
-    return new Promise((resolve, reject) => {
+    const run = () => new Promise((resolve, reject) => {
+      const frame = new Uint8Array(5 + payload.length);
+      frame[0] = SOF0; frame[1] = SOF1; frame[2] = cmd;
+      frame[3] = payload.length & 0xFF; frame[4] = (payload.length >> 8) & 0xFF;
+      frame.set(payload, 5);
+      this.onFrame?.("tx", frame);
       const timer = setTimeout(() => { this.pending = null; reject(new Error("timeout waiting for device")); }, 4000);
       this.pending = (resp) => { clearTimeout(timer); resolve(resp); };
       this.writer.write(frame).catch((e) => { clearTimeout(timer); this.pending = null; reject(e); });
     });
+    const result = this._chain.then(run, run);
+    this._chain = result.catch(() => {}); // one rejection must not wedge the queue
+    return result;
   }
 }
 

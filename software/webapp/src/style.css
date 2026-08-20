@@ -130,7 +130,6 @@
   .bank-tab.active { border-color: var(--ok); }
   .bank-tab .adot { position: absolute; top: 3px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 
-
   footer { max-width: 1100px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: 12px; }
   .banner { display: none; margin: 0 0 18px; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
   .banner.show { display: block; }

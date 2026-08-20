@@ -57,8 +57,7 @@ static void begin_response(uint8_t cmd, uint8_t status, uint16_t payload_len)
     s_resp_active = true;
 }
 
-/* Push as much of the pending response as the CDC FIFO will take, then flush.
- * Whatever doesn't fit waits for the next tick - the host drains it meanwhile. */
+/* Drain TX buffer across ticks; CDC FIFO may not fit everything. */
 static void pump_tx(void)
 {
     while (s_resp_sent < s_resp_len) {
@@ -114,12 +113,7 @@ static void dispatch(uint8_t cmd, const uint8_t *payload, uint16_t len)
         begin_response(cmd, ST_OK, 0);
         break;
     case CMD_TEST: {
-        /* The web app's per-card "Test": play a bundle on demand. Payload is a
-         * full preset_t image of the on-screen values (name unused here), so we
-         * fire exactly what's shown without touching g_config, flash, or LEDs -
-         * works on any bank and with unsaved edits. midi_send_preset bounds the
-         * counts and masks every byte, so a malformed image still only emits
-         * well-formed MIDI. */
+        /* Emit test preset without state change; image validated by midi_send_preset. */
         if (len != sizeof(preset_t)) {
             begin_response(cmd, ST_BAD_LENGTH, 0);
             break;
@@ -197,8 +191,7 @@ static void feed_byte(uint8_t b)
 
 void cdc_proto_task(void)
 {
-    /* No host connected/open: abandon any half-sent reply and drain RX so a
-     * later connect starts clean and the host's TX path never stalls. */
+    /* Disconnect: abandon pending TX, drain RX to avoid host stall. */
     if (!tud_cdc_connected()) {
         s_resp_active = false;
         s_state       = RX_SOF0;
@@ -215,8 +208,7 @@ void cdc_proto_task(void)
         return;
     }
 
-    /* One byte at a time so a completed command never strands the bytes that
-     * follow it inside an over-read chunk. Stop the moment a reply is queued. */
+    /* Read one byte at a time to avoid stranding incomplete frames; stop when reply queued. */
     while (tud_cdc_available()) {
         uint8_t b;
         if (tud_cdc_read(&b, 1) != 1)

@@ -36,11 +36,10 @@ int main(void)
     for (;;) {
         tud_task(); /* keep USB serviced as fast as the loop turns */
 
-        /* Web-app config link: parse CDC command frames, drive g_config and
-         * flash. Best-effort and non-blocking; it never stalls the pedalboard. */
+        /* CDC config link (non-blocking, never stalls pedals). */
         cdc_proto_task();
 
-        /* Drain any inbound USB-MIDI we don't act on, for the same reason. */
+        /* Drain inbound USB-MIDI (non-blocking, don't stall pedals). */
         while (tud_midi_available()) {
             uint8_t pkt[4];
             tud_midi_packet_read(pkt);
@@ -52,14 +51,8 @@ int main(void)
                 controller_on_edges(edges);
             controller_poll();
 
-            /*
-             * Keep polls at >=1 ms real spacing. controller_on_edges() can block
-             * for several ms (uart_write_blocking on a large CC bundle), and a
-             * config_save() masks interrupts for tens of ms. Advancing purely from
-             * the scheduled time would then leave next_poll in the past and fire
-             * io_poll() back-to-back on catch-up, collapsing io.c's 8 ms debounce
-             * window. So if we've fallen behind, re-anchor to now + 1 ms.
-             */
+            /* Guard debounce window: if blocking ops (UART/flash writes) stall,
+             * re-anchor poll to now+1ms to avoid catch-up collapse. */
             next_poll = delayed_by_ms(next_poll, POLL_INTERVAL_MS);
             if (time_reached(next_poll))
                 next_poll = make_timeout_time_ms(POLL_INTERVAL_MS);

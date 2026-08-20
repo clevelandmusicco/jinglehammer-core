@@ -10,10 +10,8 @@ config_t g_config;
 uint32_t g_config_epoch;
 
 /*
- * Reserve the last flash sector for config. One 4 KiB sector holds the blob
- * comfortably; the asserts below fail the build if NUM_BANKS / MAX_CC_PER_SWITCH
- * ever grow it past a sector, at which point raise CONFIG_FLASH_BYTES (in whole
- * sectors) and you're done - the layout is unchanged.
+ * Last sector holds config; asserts fail if blob grows beyond. Raise
+ * CONFIG_FLASH_BYTES in whole sectors if needed.
  */
 #define CONFIG_FLASH_BYTES  FLASH_SECTOR_SIZE
 #define CONFIG_FLASH_OFFSET (PICO_FLASH_SIZE_BYTES - CONFIG_FLASH_BYTES)
@@ -31,10 +29,8 @@ _Static_assert(CONFIG_FLASH_OFFSET % FLASH_SECTOR_SIZE == 0,
                "config flash region must be sector-aligned");
 
 /*
- * Pin the wire/flash layout: the web app mirrors config_t byte-for-byte and the
- * CRC math assumes crc32 is the trailing field with no padding before it. If a
- * future field edit introduces padding or reorders anything, these fail the build
- * instead of silently breaking the on-flash format.
+ * Asserts pin wire/flash layout: CRC math and web app mirror need no
+ * padding/reordering; catch changes at build time.
  */
 _Static_assert(sizeof(pc_msg_t) == 2u, "pc_msg_t must pack to 2 bytes");
 _Static_assert(sizeof(cc_msg_t) == 3u, "cc_msg_t must pack to 3 bytes");
@@ -66,20 +62,13 @@ static bool config_is_valid(const config_t *c)
         return false;
 
     /*
-     * Integrity is good; now enforce the field ranges the data model documents,
-     * so neither a corrupt flash blob nor a buggy/hostile web-app payload can
-     * install out-of-spec config. pc_count and cc_count are the load-bearing
-     * checks: they bound every pc[]/cc[] iteration, so validating them here keeps
-     * that invariant at the trust boundary instead of relying on each downstream
-     * consumer to clamp. mode is intentionally not range-checked - new
-     * switch_mode_t values are a planned forward-compat extension, not an error.
+     * Range-check config values: pc/cc counts bound later iterations, mode
+     * allows forward-compat.
      */
     for (uint8_t b = 0; b < NUM_BANKS; b++) {
         for (uint8_t s = 0; s < NUM_SWITCHES; s++) {
             const preset_t *p = &c->bank[b].sw[s].preset;
-            /* Terminator must sit inside the buffer so a later string read of
-             * name (front-panel display) is bounded. Printable-ness is the
-             * editor's job, like the 1..16 channel translation. */
+            /* NUL terminator must be in-bounds; printability is the editor's job. */
             if (p->name[MAX_NAME_LEN - 1] != 0)
                 return false;
             if (p->pc_count > MAX_PC_PER_SWITCH || p->cc_count > MAX_CC_PER_SWITCH)
@@ -109,9 +98,8 @@ void config_load_defaults(void)
     g_config.active_bank = 0;
 
     /*
-     * Bank 0 ships with the worked example from the design brief, so a fresh
-     * unit does something useful immediately. Channels are 0-indexed (ch1 -> 0):
-     * switch 1 sends a PC on ch1 plus three CCs on ch2/ch3.
+     * Bank 0 factory default (worked example from brief); 0-indexed channels
+     * (ch1 -> 0).
      */
     bank_cfg_t *b = &g_config.bank[0];
 
@@ -130,8 +118,7 @@ void config_load_defaults(void)
     p0->cc[1] = (cc_msg_t){ .channel = 2, .controller = 40, .value = 25 }; /* ch3 */
     p0->cc[2] = (cc_msg_t){ .channel = 2, .controller = 41, .value = 80 }; /* ch3 */
 
-    /* Switches 2..4: a single PC on ch1 (program = switch index) to show the
-     * radio behaviour - press one, its LED lights and the others go dark. */
+    /* Radio demo: single PC on ch1 with program = switch index. */
     for (uint8_t i = 1; i < NUM_SWITCHES; i++) {
         preset_t *p = &b->sw[i].preset;
         strncpy(p->name, def_name[i], MAX_NAME_LEN - 1);
@@ -158,21 +145,14 @@ bool config_save(void)
 {
     config_stamp(&g_config);
 
-    /*
-     * flash_range_program reads exactly CONFIG_PROG_LEN bytes, so stage the blob
-     * in a page-padded buffer rather than reading past g_config. Static (not
-     * stack) - it is larger than the default 2 KiB stack.
-     */
+    /* Page-aligned buffer (not stack; larger than default 2 KiB). */
     static uint8_t page_buf[CONFIG_PROG_LEN];
     memset(page_buf, 0, sizeof page_buf);
     memcpy(page_buf, &g_config, sizeof g_config);
 
     /*
-     * Single core: masking interrupts is enough. The SDK copies the flash
-     * routines + stage-2 bootloader into SRAM and re-enters XIP afterwards, so
-     * this is safe to call from flash-resident code. USB is unresponsive for the
-     * duration of the erase (tens of ms) - fine for a rare, user-driven save.
-     * If core1 is ever run from flash, switch to pico/flash.h flash_safe_execute().
+     * Interrupt masking sufficient (SDK re-enters XIP safely). USB stalls
+     * ~tens ms (erase). If core1 uses flash, use flash_safe_execute().
      */
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(CONFIG_FLASH_OFFSET, CONFIG_FLASH_BYTES);

@@ -28,7 +28,7 @@ async function doConnect() {
       banner(`Device config layout differs (device: v${cfgVer}/${blobSize}B, app: v${CONFIG_VER}/${BLOB_SIZE}B). Update the app.`, true);
       return;
     }
-    void protoVer;
+    void protoVer; // parsed for visibility; nothing to compare it against yet
     setControls(true);
     await readFromDevice();
   } catch (e) {
