@@ -1,8 +1,11 @@
 {
 	"version": "2.0.0",
-	// build.sh and test.sh both cd to their own directory first, so cwd here is
-	// belt and braces. Nothing in this file touches firmware/: the editor builds
-	// and tests on its own.
+	// build.py and test.py both resolve their own directory from __file__, so
+	// cwd here is belt and braces. Nothing in this file touches firmware/: the
+	// editor builds and tests on its own.
+	//
+	// "python3" on Linux/macOS, "python" on Windows (no python3 shim there by
+	// default) - each task carries a "windows" override for that.
 	"options": {
 		"cwd": "${workspaceFolder}"
 	},
@@ -11,7 +14,10 @@
 			"label": "webapp: build",
 			"detail": "Inline src/ into index.html",
 			"type": "shell",
-			"command": "./build.sh",
+			"command": "python3 build.py",
+			"windows": {
+				"command": "python build.py"
+			},
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -26,7 +32,10 @@
 			"label": "webapp: check",
 			"detail": "Fail if index.html is stale against src/",
 			"type": "shell",
-			"command": "./build.sh --check",
+			"command": "python3 build.py --check",
+			"windows": {
+				"command": "python build.py --check"
+			},
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "always",
@@ -37,7 +46,10 @@
 			"label": "webapp: test",
 			"detail": "Rebuild, then run the gjs codec/page self-test",
 			"type": "shell",
-			"command": "./test.sh",
+			"command": "python3 test.py",
+			"windows": {
+				"command": "python test.py"
+			},
 			"group": {
 				"kind": "test",
 				"isDefault": true
@@ -52,9 +64,14 @@
 			"label": "webapp: open",
 			"detail": "Rebuild and open index.html in the default browser",
 			"type": "shell",
-			// file:// on purpose - WebSerial works from disk, ES modules do not,
-			// which is the whole reason the app ships as one inlined file.
-			"command": "./build.sh && xdg-open index.html",
+			// python's webbrowser module instead of xdg-open so this works on
+			// Windows and macOS too, not just Linux. file:// on purpose -
+			// WebSerial works from disk, ES modules do not, which is the whole
+			// reason the app ships as one inlined file.
+			"command": "python3 build.py && python3 -m webbrowser index.html",
+			"windows": {
+				"command": "python build.py && python -m webbrowser index.html"
+			},
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",

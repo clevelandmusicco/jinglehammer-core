@@ -11,19 +11,20 @@ itself and [`../firmware/`](../firmware/README.md) for the device side.
 after cloning:
 
 ```sh
-./build.sh
+./build.py
 ```
 
 That inlines the template, CSS, and JS modules into one self-contained file. No
-npm and no bundler; it is `sh` plus `awk`. The app has to ship as a single file
-because WebSerial works from `file://` but ES modules do not.
+npm and no bundler; it is plain Python 3 stdlib, so it runs the same on
+Linux, macOS, and Windows. The app has to ship as a single file because
+WebSerial works from `file://` but ES modules do not.
 
-- `./build.sh --check` exits 1 if `index.html` is stale.
-- `./test.sh` rebuilds, then self-tests the byte codec and page load. Needs
+- `./build.py --check` exits 1 if `index.html` is stale.
+- `./test.py` rebuilds, then self-tests the byte codec and page load. Needs
   `gjs` (Debian/Ubuntu: `apt install gjs`).
 
-Both scripts `cd` to their own directory first, so they run from any working
-directory.
+Both scripts resolve their own directory from the script path, so they run
+from any working directory.
 
 Edit `src/`. Anything written to `index.html` is lost on the next build.
 
@@ -42,7 +43,7 @@ src/js/paging.js          bank tabs, edit vs active bank
 src/js/render.js          DOM building
 src/js/status.js          status pill and banner
 src/js/wiring.js          button listeners and startup
-test/selftest.js          codec offsets and page-load test, run by test.sh
+test/selftest.js          codec offsets and page-load test, run by test.py
 ```
 
 `config-schema.js` mirrors the firmware's `config_t` name-for-name, and every

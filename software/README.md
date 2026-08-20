@@ -73,7 +73,7 @@ edit when re-pinning. Full table in the [firmware README](firmware/README.md).
 git clone <repo-url>
 cd jinglehammer/software
 cmake --build firmware/build     # after a one-time configure, see firmware/README.md
-./webapp/build.sh                # generates webapp/index.html
+./webapp/build.py                # generates webapp/index.html
 ```
 
 In VSCode, open `jinglehammer.code-workspace` rather than the `software/` folder.

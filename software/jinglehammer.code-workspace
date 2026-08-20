@@ -89,7 +89,10 @@
 				"label": "all: build",
 				"detail": "Build firmware and webapp (parallel, independent)",
 				"type": "shell",
-				"command": "cmake --build '${workspaceFolder:firmware}/build' & '${workspaceFolder:webapp}/build.sh' & wait",
+				"command": "cmake --build '${workspaceFolder:firmware}/build' & python3 '${workspaceFolder:webapp}/build.py' & wait",
+				"windows": {
+					"command": "cmake --build '${workspaceFolder:firmware}/build' ; python '${workspaceFolder:webapp}/build.py'"
+				},
 				"group": "build",
 				"problemMatcher": ["$gcc"],
 				"presentation": {
@@ -101,7 +104,10 @@
 				"label": "all: verify",
 				"detail": "Build firmware, then run the webapp self-test",
 				"type": "shell",
-				"command": "cmake --build '${workspaceFolder:firmware}/build' && '${workspaceFolder:webapp}/test.sh'",
+				"command": "cmake --build '${workspaceFolder:firmware}/build' && python3 '${workspaceFolder:webapp}/test.py'",
+				"windows": {
+					"command": "cmake --build '${workspaceFolder:firmware}/build' && python '${workspaceFolder:webapp}/test.py'"
+				},
 				"group": "test",
 				"problemMatcher": ["$gcc"],
 				"presentation": {
@@ -113,7 +119,10 @@
 				"label": "all: deploy",
 				"detail": "Build firmware, load it over USB, then rebuild webapp/index.html",
 				"type": "shell",
-				"command": "cmake --build '${workspaceFolder:firmware}/build' && picotool load '${workspaceFolder:firmware}/build/midi_ctrl.uf2' -fx && '${workspaceFolder:webapp}/build.sh'",
+				"command": "cmake --build '${workspaceFolder:firmware}/build' && picotool load '${workspaceFolder:firmware}/build/midi_ctrl.uf2' -fx && python3 '${workspaceFolder:webapp}/build.py'",
+				"windows": {
+					"command": "cmake --build '${workspaceFolder:firmware}/build' && picotool load '${workspaceFolder:firmware}/build/midi_ctrl.uf2' -fx && python '${workspaceFolder:webapp}/build.py'"
+				},
 				"problemMatcher": ["$gcc"],
 				"presentation": {
 					"reveal": "always",

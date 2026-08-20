@@ -1,4 +1,4 @@
-// Self-test for the config editor. Run via ../test.sh (needs gjs; see below).
+// Self-test for the config editor. Run via ../test.py (needs gjs; see below).
 //
 // There is no browser in the build environment and `node` is a broken snap on
 // this box, so gjs (SpiderMonkey) is what we have. It gives a real JS engine
@@ -196,7 +196,7 @@ const stub = {
 {
   const html = read("index.html");
   const m = html.match(/<script>\n([\s\S]*)\n<\/script>/);
-  if (!m) fails.push("index.html has no <script> block - did build.sh run?");
+  if (!m) fails.push("index.html has no <script> block - did build.py run?");
   else {
     const names = Object.keys(stub);
     try {
