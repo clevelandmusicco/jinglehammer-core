@@ -9,8 +9,8 @@
 	// (the SCM view still spans the whole repo, which is what you want for commits).
 	"folders": [
 		{
-			// README / DEVLOG / CLAUDE.md. Its .vscode/settings.json hides the two
-			// subfolders below so they do not show up twice in the explorer.
+			// Its .vscode/settings.json hides the two subfolders below so they
+			// do not show up twice in the explorer.
 			"name": "software",
 			"path": "."
 		},
