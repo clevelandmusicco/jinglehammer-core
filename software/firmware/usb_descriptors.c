@@ -117,7 +117,7 @@ TU_VERIFY_STATIC(sizeof(desc_ms_os_20) == MS_OS_20_DESC_LEN, "MS OS 2.0 descript
 static char const *string_desc_arr[] = {
     (const char[]){ 0x09, 0x04 }, /* 0: LangID = English */
     "Cleveland Music Co.",        /* 1: manufacturer */
-    "Jinglehammer Lite",          /* 2: product */
+    "Jinglehammer Core",          /* 2: product */
     NULL,                         /* 3: serial, filled from board unique ID */
     "Reset",                      /* 4: picotool reset interface */
 };

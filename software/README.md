@@ -1,4 +1,4 @@
-# Jinglehammer software
+# Jinglehammer Core
 
 A four-switch MIDI foot controller built on a Raspberry Pi Pico 2 (RP2350). Each
 footswitch sends a configurable bundle of Program Change and Control Change
@@ -8,35 +8,35 @@ live in flash and are edited from a browser over USB-CDC. No drivers, no install
 Two pieces, each with its own README:
 
 - [`firmware/`](firmware/README.md) - the C firmware and its Pico SDK build.
-- [`webapp/`](webapp/README.md) - the single-file config editor that talks to the
-  unit over WebSerial.
+- [`webapp/`](webapp/README.md) - a single-file config editor that talks to the
+  controller over WebSerial.
 
 This directory is the whole software side. One level up, the repo also holds
-`docs/` and `hardware/`, the latter for enclosure and PCB design files. Neither
-is part of any build here.
+`docs/` and `hardware/`, the latter for a 3D-printed enclosure and PCB design
+files. Neither is part of any build here.
 
-## What it does
+## Overall UX
 
-One press sends that switch's whole bundle: Program Changes first, in array
-order, then Control Changes, each message on its own MIDI channel. PC before CC
-is the safe order for patch recall, since the CCs then land on the patch the PC
-just selected.
+The whole controller can effectively be taught in three sentences:
+
+- Press 1–4 to select a preset in the active bank.
+- Press the two left- or right-most switches simultaneously to move down or up a bank.
+- Solid LEDs indicate Banks 1–4; blinking LEDs indicate Banks 5–8.
+
+**Presets.** Also called "bundles". Selecting a preset sends that switch's message
+bundle: Program Changes first, then Control Changes, each message on its own MIDI
+channel.
 
 Switches are momentary presets in "radio" mode. The switch you press becomes the
-active one, its LED lights, the other three go dark. Nothing is active at boot,
-so the unit stays silent until the first press.
+active one, its LED lights, the other three go dark.
 
 **Banks.** Press SW1+SW2 together to step the active bank down, SW3+SW4 to step
-it up. Both ends clamp; there is no wrap. A chord suppresses both switches'
-presets, so changing bank emits no stray MIDI. After a step the LEDs show the
-new bank for about 0.8 s: banks 1-4 light LED 1-4 solid, banks 5-8 light the
-same four blinking. Then all four LEDs breathe for about 2 s while the unit
-waits for you to pick a preset on the new bank. Pick one and it fires normally.
-Pick nothing and the whole move is abandoned: the bank returns to where you
-started, replays that bank's readout, and settles back on the preset that was
-lit before you began.
+it up. Two switches together is a "chord". A chord suppresses both switches'
+presets, so changing bank spews no stray MIDI. After a step the LEDs show the
+new bank for a little less than a second: banks 1-4 light LED 1-4 solid, banks
+5-8 light the same four, but blinking.
 
-During bank navigation, the LEDs provide simple visual feedback:
+Here's a visual of the LED feedback when navigating the banks:
 
 ```text
 Bank 1 = ● ○ ○ ○
@@ -53,8 +53,13 @@ Bank 8 = ○ ○ ○ ◉
 
 where ◉ means blinking.
 
+After one of the above is displayed, all four LEDs slowly pulse for about 2s while the
+controller waits for you to pick a preset on the new bank. Pick one and it fires
+normally. Pick nothing and the bank navigation is abandoned; the controller returns
+to where you started.
+
 Bank changes are RAM-only. Nothing reaches flash until you Save from the web
-app, so the bank the unit boots into is whichever one was last written.
+app, so the bank the controller boots into is whichever one was last written.
 
 ## Hardware summary
 
@@ -64,14 +69,14 @@ UART-to-MIDI output stage. MIDI is output only. USB is native and enumerates as
 a composite CDC + USB-MIDI device, so the same cable carries MIDI and the config
 link.
 
-Pins and counts are in [`firmware/board.h`](firmware/board.h), the only file to
-edit when re-pinning. Full table in the [firmware README](firmware/README.md).
+Pins and counts are in [`firmware/board.h`](firmware/board.h). Full table in the
+[firmware README](firmware/README.md).
 
 ## Getting started
 
 ```sh
-git clone <repo-url>
-cd jinglehammer/software
+git clone https://github.com/clevelandmusicco/jinglehammer-core
+cd jinglehammer-core/software
 cmake --build firmware/build     # after a one-time configure, see firmware/README.md
 ./webapp/build.py                # generates webapp/index.html
 ```
@@ -106,10 +111,7 @@ running some older build has to be flashed the manual way once before the task
 starts working. The Pico extension's own generated tasks (`Compile Project`,
 `Flash`, the reset ones) are still there and still work.
 
-## Further reading
+## Work in progress
 
-- [`../docs/MIDI-Host-Considerations.md`](../docs/MIDI-Host-Considerations.md):
-  parking-lot design notes on driving 5-pin DIN and USB-only pedals from the same
-  rig. Nothing there is built yet.
-- [`DEVLOG.md`](DEVLOG.md): design decisions and the reasoning behind them,
-  newest last.
+This is NOT a finished project. Expect a lot of change (improvements?) in the coming
+weeks.
