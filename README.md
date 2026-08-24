@@ -19,5 +19,5 @@ browser-based config editor), `hardware/` (enclosure CAD and PCB design), and
 - The enclosure source is provided in FreeCAD format, with STEP and 3MF files
   for use in your slicer of choice
   
-> [! NOTE]
+> [!NOTE]
 > Pictures of the hardware and the webapp coming soon.
